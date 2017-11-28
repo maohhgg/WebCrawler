@@ -40,7 +40,7 @@ class WCMysql:
     def update(self, args):
         args = list(args)
         self.__update(args)
-        self._sql = str("UPDATE `%s` SET %s WHERR %s" % (self._table, self._update, self._where))
+        self._sql = str("UPDATE `%s` SET %s WHERE %s" % (self._table, self._update, self._where))
         return self.__exec()
 
     def get(self):
@@ -52,11 +52,11 @@ class WCMysql:
         temp = []
         for item in args:
             if type(item[1]) is type(10):
-                temp.append(str("`%s` = %d," % (item[0], item[1])))
+                temp.append(str("`%s` = %d" % (item[0], item[1])))
             else:
-                temp.append(str("`%s` = '%s'," % (item[0], item[1])))
-
+                temp.append(str("`%s` = '%s'" % (item[0], item[1])))
         self._update = ','.join(temp)
+
 
     def __exec(self):
         if self._sql:
