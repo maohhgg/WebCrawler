@@ -9,7 +9,7 @@ class WCThread(threading.Thread):
         func: 线程函数逻辑
     """
     def __init__(self, func):
-        super(MyThread, self).__init__()  # 调用父类的构造函数
+        super(WCThread, self).__init__()  # 调用父类的构造函数
         self.func = func  # 传入线程函数逻辑
 
     def run(self):
