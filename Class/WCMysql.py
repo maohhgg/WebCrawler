@@ -39,16 +39,31 @@ class WCMysql:
 
     def update(self, args):
         args = list(args)
-        self.__update(args)
-        self._sql = str("UPDATE `%s` SET %s WHERE %s" % (self._table, self._update, self._where))
-        return self.__exec()
+        self._update_arr(args)
+        self._sql = str('UPDATE `%s` SET %s WHERE %s' % (self._table, self._update, self._where))
+        return self._exec()
+
+    def insert(self, args):
+        keys = list(args.keys())
+        values = list(args.values())
+        keys = self._update_keys(keys)
+        values = self._update_keys(values, '\'')
+        keys = ",".join(keys)
+        values = ",".join(map(str, values))
+        self._sql = "INSERT INTO %s (%s) VALUES (%s)" % (self._table, keys, values)
+        return self._exec()
 
     def get(self):
-        self._sql = str("SELECT %s FROM `%s` WHERE %s" % (
-            self._select, self._table, self._where))
-        return self.__exec()
+        self._sql = "SELECT %s FROM `%s` WHERE %s" % (self._select, self._table, self._where)
+        return self._exec()
 
-    def __update(self, args):
+    def _update_keys(self, args, string='`'):
+        for i in range(0, len(args)):
+            if type(args[i]) == type(str('123')):
+                args[i] = "%s%s%s" % (string, args[i], string)
+        return args
+
+    def _update_arr(self, args):
         temp = []
         for item in args:
             if type(item[1]) is type(10):
@@ -57,8 +72,7 @@ class WCMysql:
                 temp.append(str("`%s` = '%s'" % (item[0], item[1])))
         self._update = ','.join(temp)
 
-
-    def __exec(self):
+    def _exec(self):
         if self._sql:
             try:
                 self.cursor.execute(self._sql)
