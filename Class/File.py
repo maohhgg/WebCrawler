@@ -9,7 +9,7 @@ class File:
     def get(cls, dir, file):
         return {
             'name': file,
-            'type': file[file.find('.'):len(file)],
+            'type': ('text' if file.find('.') == -1 else file[file.find('.'):len(file)]),
             'size': cls.get_file_size(dir + file),
             'ctime': cls.get_file_ctime(dir + file),
             'utime': cls.get_file_utime(dir + file)

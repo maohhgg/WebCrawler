@@ -33,6 +33,8 @@ class WCMysql:
     def where(self, *args):
         if type(args[1]) is type(10):
             self._where = str("`%s` = %d" % (args[0], args[1]))
+        elif type(args[2]) is type('string'):
+            self._where = "`%s` %s '%s'" % (args[0],args[1],args[2])
         else:
             self._where = str("`%s` = '%s'" % (args[0], args[1]))
         return self
@@ -57,6 +59,10 @@ class WCMysql:
         self._sql = "SELECT %s FROM `%s` WHERE %s" % (self._select, self._table, self._where)
         return self._exec()
 
+    def all(self):
+        self._sql = "SELECT %s FROM `%s` WHERE %s AND `id` > 3534" % (self._select, self._table, self._where)
+        return self._exec(True)
+
     def _update_keys(self, args, string='`'):
         for i in range(0, len(args)):
             if type(args[i]) == type(str('123')):
@@ -72,12 +78,15 @@ class WCMysql:
                 temp.append(str("`%s` = '%s'" % (item[0], item[1])))
         self._update = ','.join(temp)
 
-    def _exec(self):
+    def _exec(self, all = None):
         if self._sql:
             try:
                 self.cursor.execute(self._sql)
                 self.connection.commit()
-                result = self.cursor.fetchone()
+                if all:
+                    result = self.cursor.fetchall()
+                else:
+                    result = self.cursor.fetchone()
                 return list(result)
             except:
                 self.connection.rollback()

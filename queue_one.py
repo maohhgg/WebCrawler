@@ -20,7 +20,7 @@ _WORKER_THREAD_DELAY = 0.5  # 秒 设置 worker 线程休眠时间 = 1
 _FARMER_THREAD_NUM = 1
 
 # 运行的参数
-_FARMER_MARK = 1349582400  # 开始时间 2012-10-7
+_FARMER_MARK = 1422504000  # 开始时间 2012-10-7
 _FARMER_MARK_END = 1511928000  # 结束时间 2017-11-27
 
 # Mysql 连接
@@ -55,10 +55,11 @@ def worker_do_something(item, file, connection, http):
     _dict = http.get('http://qust.me:8889/api/one/date/' + item).content()
 
     if _dict:
-        name = file.uri(_dict['img_url']).download(str(_dict['id']))
+        name = file.uri(_dict['img_url']).download(str(_dict['date']))
         if name:
             _dict['img_url'] = name
-            connection.table('one').table('one').insert(_dict)
+
+        connection.table('one').table('one').insert(_dict)
 
 
 def prn_obj(obj):

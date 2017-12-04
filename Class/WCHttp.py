@@ -18,10 +18,8 @@ class WCHttp:
     def header(self, *args):
         if len(args) < 1:
             return self
-        if type(args[0]) != type('ss'):
-            print(args)
+        if type(args[0]) != type('string'):
             for item in args:
-                print(item)
                 self._headers[item[0]] = item[1]
         elif len(args) > 1:
             for i in range(0, len(args), 2):
@@ -49,30 +47,16 @@ class WCHttp:
         return self
 
     def content(self):
-        if self._content_type[1] == 'json':
-            return json.loads(self.re.content)
-        elif self._func:
-            return self._func(self.re.content)
+        if self.re.status_code == 200:
+            if self._content_type[1] == 'json':
+                return json.loads(self.re.content)
+            else:
+                return self.re.content
+        else:
+            return False
 
     def _get_content_type(self, string):
         arr = string.split(';')
         types = str(arr[0]).split('/')
         return types
 
-
-# 调试内容
-#
-# def prn_obj(obj):
-#     print('\n'.join(['%s:%s' % item for item in obj.__dict__.items()]))
-#
-#
-# def main():
-#     url = 'http://qust.me:8889/api/one/date/2013-03-07'
-#     http = WCHttp()
-#     http.get(url)
-#     print(http.content())
-#     # prn_obj(http)
-#
-#
-# if __name__ == '__main__':
-#     main()
