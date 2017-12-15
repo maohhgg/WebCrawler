@@ -13,9 +13,9 @@ class WCMysql:
     database: Database to use, None to not use a particular one.
     """
 
-    def __init__(self, host, user, password, database):
+    def __init__(self, host, user, password, database, charset="utf8"):
         self.connection = pymysql.connect(
-            host, user, password, database, use_unicode=True, charset="utf8")
+            host, user, password, database, use_unicode=True, charset=charset)
         self.cursor = self.connection.cursor()
         self._sql = False
 
@@ -33,8 +33,8 @@ class WCMysql:
     def where(self, *args):
         if type(args[1]) is type(10):
             self._where = str("`%s` = %d" % (args[0], args[1]))
-        elif type(args[2]) is type('string'):
-            self._where = "`%s` %s '%s'" % (args[0],args[1],args[2])
+        elif args[2]:
+            self._where = "`%s` %s %s" % (args[0], args[1], args[2])
         else:
             self._where = str("`%s` = '%s'" % (args[0], args[1]))
         return self
@@ -43,6 +43,7 @@ class WCMysql:
         args = list(args)
         self._update_arr(args)
         self._sql = str('UPDATE `%s` SET %s WHERE %s' % (self._table, self._update, self._where))
+        print(self._sql)
         return self._exec()
 
     def insert(self, args):
@@ -60,7 +61,7 @@ class WCMysql:
         return self._exec()
 
     def all(self):
-        self._sql = "SELECT %s FROM `%s` WHERE %s AND `id` > 3534" % (self._select, self._table, self._where)
+        self._sql = "SELECT %s FROM `%s` WHERE %s" % (self._select, self._table, self._where)
         return self._exec(True)
 
     def _update_keys(self, args, string='`'):
@@ -75,10 +76,10 @@ class WCMysql:
             if type(item[1]) is type(10):
                 temp.append(str("`%s` = %d" % (item[0], item[1])))
             else:
-                temp.append(str("`%s` = '%s'" % (item[0], item[1])))
+                temp.append(str("`%s` = %s" % (item[0], self.connection.escape(item[1]))))
         self._update = ','.join(temp)
 
-    def _exec(self, all = None):
+    def _exec(self, all=None):
         if self._sql:
             try:
                 self.cursor.execute(self._sql)
