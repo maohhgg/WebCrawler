@@ -2,9 +2,12 @@
 # -*- coding:utf-8 -*-
 import json
 import requests
+from urllib.parse import urlparse
 
 
 class WCHttp:
+    request = {}
+
     def __init__(self):
         self._headers = {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
@@ -29,11 +32,13 @@ class WCHttp:
         return self
 
     def get(self, url):
-        self.re = self.s.get(url)
-        if self.re.status_code == 200:
-            self._content_type = self._get_content_type(self.re.headers['content-type'])
-            if self.re.cookies:
-                self.header('Cookies', self.re.cookies)
+        self.request['url'] = url
+        self.request['url_detail'] = urlparse(url)
+        self.response = self.s.get(url)
+        if self.response.status_code == 200:
+            self._content_type = self._get_content_type(self.response.headers['content-type'])
+            # if self.response.cookies:
+            #     self.header('Cookies', self.response.cookies)
         else:
             print("---")
             # something code
@@ -47,11 +52,11 @@ class WCHttp:
         return self
 
     def content(self):
-        if self.re.status_code == 200:
+        if self.response.status_code == 200:
             if self._content_type[1] == 'json':
-                return json.loads(self.re.content)
+                return json.loads(self.response.content)
             else:
-                return self.re.content
+                return self.response.content
         else:
             return False
 
@@ -59,4 +64,7 @@ class WCHttp:
         arr = string.split(';')
         types = str(arr[0]).split('/')
         return types
+
+    def get_url_detail(self):
+        return self.request['url_detail']
 
