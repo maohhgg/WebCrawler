@@ -13,7 +13,7 @@ from Class.WCHttp import WCHttp
 class PHP:
     content = None
     tree = None
-    detail = {}
+    detail = {'data': {}}
     refentry = None
     note = ['caution', 'warning', 'methodsynopsis dc-description']
 
@@ -35,11 +35,12 @@ class PHP:
         得到基本的信息
         :return:
         """
-        self.detail['url'] = str(os.path.basename(self.url.path))
-        detail = self.detail['url'].split('.')
+        url = str(os.path.basename(self.url.path))
+        self.detail['url'] = url
+        detail = url.split('.')
         self.detail['html_id'] = '.'.join(detail[:2])  # 取到想要内容的 id
-        self.detail['type'] = detail[0]  # 判定类型 function class ...
-        self.detail['url_name'] = detail[1]
+        self.detail['data']['type'] = detail[0]  # 判定类型 function class ...
+        self.detail['data']['path'] = url
         return self
 
     def get_mian_dom(self):
@@ -65,7 +66,7 @@ class PHP:
     def get_all(self):
         self.get_mian_dom()
         keys = self.get_keys()
-        if self.detail['type'] == 'class':
+        if self.detail['data']['type'] == 'class':
             self.class_name()
             self.get_class()
         else:
@@ -73,11 +74,11 @@ class PHP:
             for key in keys:
                 func = getattr(self, key)
                 func()
-        return self.detail
+        return self.detail['data']
 
     def class_name(self):
-        self.detail['refname'] = self.get_code(self.get_dom(tag='h1', className='title')[0])
-        self.detail['verinfo'] = self.get_code(self.get_dom(tag='div/p', className='verinfo')[0])
+        self.detail['data']['refname'] = self.get_code(self.get_dom(tag='h1', className='title')[0])
+        self.detail['data']['verinfo'] = self.get_code(self.get_dom(tag='div/p', className='verinfo')[0])
         pass
 
     def get_class(self):
@@ -99,7 +100,7 @@ class PHP:
         p = self.get_dom(tag='p', className='para', parent=dom)
         for e in p:
             param['description'] += self.get_code(e, parent=dom)
-        self.detail[key] = param
+        self.detail['data'][key] = param
 
     def class_synopsis(self, dom):
         """
@@ -123,7 +124,7 @@ class PHP:
             if cls:
                 codes += "\n"
 
-        self.detail[key] = codes + '}\n```'
+        self.detail['data'][key]= codes + '}\n```'
 
     def class_constants(self, dom):
         """
@@ -139,7 +140,7 @@ class PHP:
 
         for i in range(len(dd)):
             param.append([self.get_code(dt[i], parent=dl), self.get_code(dd[i], parent=dl)])
-        self.detail[key] = param
+        self.detail['data'][key]= param
 
     def real_name(self):
         dom = self.get_dom(tag='div', className='refnamediv')[0]
@@ -150,9 +151,9 @@ class PHP:
                 name.append(self.get_code(e, parent=dom))
         elif len(refname) == 1:
             name = self.get_code(refname[0], parent=dom)
-        self.detail['refname'] = name
-        self.detail['verinfo'] = self.get_code(self.get_dom(tag='p', className='verinfo', parent=dom)[0], parent=dom)
-        self.detail['purpose'] = self.get_code(self.get_dom(tag='p', className='refpurpose', parent=dom)[0], parent=dom)
+        self.detail['data']['refname'] = name
+        self.detail['data']['verinfo'] = self.get_code(self.get_dom(tag='p', className='verinfo', parent=dom)[0], parent=dom)
+        self.detail['data']['purpose'] = self.get_code(self.get_dom(tag='p', className='refpurpose', parent=dom)[0], parent=dom)
 
     def parameters(self):
         """
@@ -174,12 +175,13 @@ class PHP:
                 if d.get('class') not in self.note:
                     string += self.get_code(d, parent=dd[i]) + '\n'
                 else:
-                    data = self.get_code(d, parent=dd[i],mark=['span'])
-                    data['code'] = "```php\n%s\n```" % data['code']
+                    data = self.get_code(d, parent=dd[i], mark=['span'])
+                    if 'code' in data.keys():
+                        data['code'] = "```php\n%s\n```" % data['code']
                     detail.update(data)  # self.note中的是返回 dict
             detail['description'] = string
             param.append(detail)
-        self.detail[key] = param
+        self.detail['data'][key]= param
 
     def description(self):
         """
@@ -194,11 +196,12 @@ class PHP:
         for d in dom.getchildren():
             if d.get('class') in self.note:
                 data = self.get_code(d, parent=dom, mark=['span'])
-                data['code'] = "```php\n%s\n```" % data['code']
+                if 'code' in data.keys():
+                    data['code'] = "```php\n%s\n```" % data['code']
                 param.update(data)
             elif d.tag != 'h3':
                 param['description'] += self.get_code(d, parent=dom) + '\n'
-        self.detail[key] = param
+        self.detail['data'][key]= param
 
     def returnvalues(self):
         """
@@ -216,7 +219,7 @@ class PHP:
             param['description'] += self.get_code(e, parent=dom) + '\n'
         for d in div:
             param[d.get('class')] = str(self.get_code(d, parent=dom))
-        self.detail[key] = param
+        self.detail['data'][key]= param
 
     def changelog(self):
         """
@@ -232,7 +235,7 @@ class PHP:
         tr = self.get_dom(tag='tr', parent=tbody)
         for td in tr:
             param['table'].append(str(self.get_code(td, parent=dom)))
-        self.detail[key] = param
+        self.detail['data'][key]= param
 
     def examples(self):
         """
@@ -263,7 +266,7 @@ class PHP:
                     temp_id_index += 1
                     param.update({temp_id_index: c})
 
-        self.detail[key] = param
+        self.detail['data'][key]= param
 
     def seealso(self):
         """
@@ -278,7 +281,7 @@ class PHP:
         ul = self.get_dom(tag='ul/li', parent=dom)
         for li in ul:
             param.append(self.get_code(li))
-        self.detail[key] = param
+        self.detail['data'][key]= param
 
     def errors(self):
         """
@@ -293,7 +296,7 @@ class PHP:
         para = self.get_dom(className='para', parent=dom)
         for p in para:
             param.append(self.get_code(p))
-        self.detail[key] = param
+        self.detail['data'][key]= param
 
     def notes(self):
         """
@@ -308,7 +311,7 @@ class PHP:
         notes = self.get_dom(tag='blockquote', parent=dom)
         for note in notes:
             param.append(self.get_code(note))
-        self.detail[key] = param
+        self.detail['data'][key]= param
 
     def get_dom(self, tag='*', className=None, id=None, parent=None):
         """
