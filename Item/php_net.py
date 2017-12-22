@@ -20,6 +20,13 @@ class PHP:
     def __init__(self):
         self.http = WCHttp()
 
+    def __getattr__(self, name):
+        if name.find('class_') > -1:
+            pass
+        elif name.find('return') > -1:
+            self.description(name)
+        return None
+
     def get(self, url, header=None):
         if header:
             self.http.header(header)
@@ -40,7 +47,7 @@ class PHP:
         detail = url.split('.')
         self.detail['html_id'] = '.'.join(detail[:2])  # 取到想要内容的 id
         self.detail['data']['type'] = detail[0]  # 判定类型 function class ...
-        self.detail['data']['path'] = url
+        self.detail['data']['path'] = self.detail['html_id']
         return self
 
     def get_mian_dom(self):
@@ -73,7 +80,8 @@ class PHP:
             self.real_name()
             for key in keys:
                 func = getattr(self, key)
-                func()
+                if func:
+                    func()
         return self.detail['data']
 
     def class_name(self):
@@ -82,7 +90,7 @@ class PHP:
         pass
 
     def get_class(self):
-        key = ['intro', 'synopsis', 'constants']
+        key = ['intro', 'synopsis', 'constants', 'props']
         section = self.get_dom(tag='div/div', className='section')
         for i in range(len(section)):
             func = getattr(self, ('class_%s' % key[i]))
@@ -124,7 +132,7 @@ class PHP:
             if cls:
                 codes += "\n"
 
-        self.detail['data'][key]= codes + '}\n```'
+        self.detail['data'][key] = codes + '}\n```'
 
     def class_constants(self, dom):
         """
@@ -134,26 +142,48 @@ class PHP:
         """
         key = str(sys._getframe().f_code.co_name).replace('class_', '')
         param = []
-        dl = self.get_dom(tag='dl', parent=dom)[0]
-        dt = self.get_dom(tag='dt', parent=dl)
-        dd = self.get_dom(tag='dd', parent=dl)
+        dl = self.get_dom(tag='dl', parent=dom)
+        if dl:
+            dl = dl[0]
+            dt = self.get_dom(tag='dt', parent=dl)
+            dd = self.get_dom(tag='dd', parent=dl)
 
-        for i in range(len(dd)):
-            param.append([self.get_code(dt[i], parent=dl), self.get_code(dd[i], parent=dl)])
-        self.detail['data'][key]= param
+            for i in range(len(dd)):
+                param.append([self.get_code(dt[i], parent=dl), self.get_code(dd[i], parent=dl)])
+            self.detail['data'][key] = param
+
+    def class_props(self, dom):
+        """
+        方法 属性
+        function examples
+        :return: null
+        """
+        key = str(sys._getframe().f_code.co_name).replace('class_', '')
+        param = []
+        dl = self.get_dom(tag='dl', parent=dom)
+        if dl:
+            dl = dl[0]
+            dt = self.get_dom(tag='dt', parent=dl)
+            dd = self.get_dom(tag='dd', parent=dl)
+
+            for i in range(len(dd)):
+                param.append([self.get_code(dt[i], parent=dl), self.get_code(dd[i], parent=dl)])
+            self.detail['data'][key] = param
 
     def real_name(self):
         dom = self.get_dom(tag='div', className='refnamediv')[0]
         refname = self.get_dom(tag='h1', parent=dom)
-        name = None
+        name = []
         if len(refname) > 1:
             for e in refname:
                 name.append(self.get_code(e, parent=dom))
         elif len(refname) == 1:
             name = self.get_code(refname[0], parent=dom)
         self.detail['data']['refname'] = name
-        self.detail['data']['verinfo'] = self.get_code(self.get_dom(tag='p', className='verinfo', parent=dom)[0], parent=dom)
-        self.detail['data']['purpose'] = self.get_code(self.get_dom(tag='p', className='refpurpose', parent=dom)[0], parent=dom)
+        self.detail['data']['verinfo'] = self.get_code(self.get_dom(tag='p', className='verinfo', parent=dom)[0],
+                                                       parent=dom)
+        self.detail['data']['purpose'] = self.get_code(self.get_dom(tag='p', className='refpurpose', parent=dom)[0],
+                                                       parent=dom)
 
     def parameters(self):
         """
@@ -165,31 +195,40 @@ class PHP:
         param = []
         id = 'refsect1-%s-%s' % (self.detail['html_id'], key)
         dom = self.get_dom(id=id)[0]
-        dl = self.get_dom(tag='dl', parent=dom)[0]
-        dt = self.get_dom(tag='dt', parent=dl)
-        dd = self.get_dom(tag='dd', parent=dl)
-        for i in range(len(dd)):
-            detail = {'title': self.get_code(dt[i], parent=dl, active=False), 'description': ''}
-            string = ''
-            for d in dd[i].getchildren():
-                if d.get('class') not in self.note:
-                    string += self.get_code(d, parent=dd[i]) + '\n'
-                else:
-                    data = self.get_code(d, parent=dd[i], mark=['span'])
-                    if 'code' in data.keys():
-                        data['code'] = "```php\n%s\n```" % data['code']
-                    detail.update(data)  # self.note中的是返回 dict
-            detail['description'] = string
-            param.append(detail)
-        self.detail['data'][key]= param
+        dl = self.get_dom(tag='dl', parent=dom)
+        if dl:
+            dl = dl[0]
+            dt = self.get_dom(tag='dt', parent=dl)
+            dd = self.get_dom(tag='dd', parent=dl)
+            for i in range(len(dd)):
+                detail = {'title': self.get_code(dt[i], parent=dl, active=False), 'description': ''}
+                string = ''
+                for d in dd[i].getchildren():
+                    if d.get('class') not in self.note:
+                        string += self.get_code(d, parent=dd[i]) + '\n'
+                    else:
+                        data = self.get_code(d, parent=dd[i], mark=['span'])
+                        if 'code' in data.keys():
+                            data['code'] = "```php\n%s\n```" % data['code']
+                        detail.update(data)  # self.note中的是返回 dict
+                detail['description'] = string
+                param.append(detail)
+        else:
+            param = self.get_code(dom)
+        self.detail['data'][key] = param
 
-    def description(self):
+    def description(self, name=None):
         """
         方法 说明
         function description
         :return: null
         """
-        key = sys._getframe().f_code.co_name
+        if name:
+            key = name
+            mark = 'docs'
+        else:
+            key = sys._getframe().f_code.co_name
+            mark = key
         param = {'description': ''}
         id = 'refsect1-%s-%s' % (self.detail['html_id'], key)
         dom = self.get_dom(id=id)[0]
@@ -201,7 +240,7 @@ class PHP:
                 param.update(data)
             elif d.tag != 'h3':
                 param['description'] += self.get_code(d, parent=dom) + '\n'
-        self.detail['data'][key]= param
+        self.detail['data'][mark] = param
 
     def returnvalues(self):
         """
@@ -219,7 +258,7 @@ class PHP:
             param['description'] += self.get_code(e, parent=dom) + '\n'
         for d in div:
             param[d.get('class')] = str(self.get_code(d, parent=dom))
-        self.detail['data'][key]= param
+        self.detail['data'][key] = param
 
     def changelog(self):
         """
@@ -235,7 +274,7 @@ class PHP:
         tr = self.get_dom(tag='tr', parent=tbody)
         for td in tr:
             param['table'].append(str(self.get_code(td, parent=dom)))
-        self.detail['data'][key]= param
+        self.detail['data'][key] = param
 
     def examples(self):
         """
@@ -266,7 +305,7 @@ class PHP:
                     temp_id_index += 1
                     param.update({temp_id_index: c})
 
-        self.detail['data'][key]= param
+        self.detail['data'][key] = param
 
     def seealso(self):
         """
@@ -281,7 +320,8 @@ class PHP:
         ul = self.get_dom(tag='ul/li', parent=dom)
         for li in ul:
             param.append(self.get_code(li))
-        self.detail['data'][key]= param
+
+        self.detail['data'][key] = '\n'.join(param)
 
     def errors(self):
         """
@@ -296,7 +336,7 @@ class PHP:
         para = self.get_dom(className='para', parent=dom)
         for p in para:
             param.append(self.get_code(p))
-        self.detail['data'][key]= param
+        self.detail['data'][key] = param
 
     def notes(self):
         """
@@ -311,7 +351,7 @@ class PHP:
         notes = self.get_dom(tag='blockquote', parent=dom)
         for note in notes:
             param.append(self.get_code(note))
-        self.detail['data'][key]= param
+        self.detail['data'][key] = param
 
     def get_dom(self, tag='*', className=None, id=None, parent=None):
         """
@@ -358,7 +398,7 @@ class PHP:
         # 内容为节点
         if isinstance(node, etree._Element):
             if node.tag == 'pre':
-                return '```\n%s\n```' % node.text
+                return '```%s\n```' % node.text
             if node.tag == 'br':
                 return '\n'
 
@@ -370,9 +410,13 @@ class PHP:
                 if (node.tag == 'a') and (mark is None or 'a' in mark):
                     c = " [%s](%s) " % (c, node.get('href'))
                 elif node.tag == 'blockquote':
-                    c = '\n> %s' % c
+                    c = '> %s' % c
+                elif node.tag == 'table' or node.tag == 'thead':
+                    c = "\n%s" % c
+                elif node.tag == 'th':
+                    c = "|-%s-" % c
                 elif node.tag == 'tr':
-                    c = c + ' |'
+                    c = c + ' |\n'
                 elif node.tag == 'td':
                     c = '| ' + c
                 elif node.tag == 'li':
@@ -380,7 +424,7 @@ class PHP:
 
             # 代码段
             if node.get('class') == 'phpcode':
-                c = '```php\n%s\n```' % c
+                c = '```php%s\n```' % c
             # 当内容为警告提示框或函数用法提示框
             elif node.get('class') in self.note and node.tag == 'div':
                 # 函数用法提示框 key 改为 'code'
