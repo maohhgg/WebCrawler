@@ -55,7 +55,6 @@ class PHP:
         得到全局的有效节点，
         :return:
         """
-        self.get_type()
         if self.tree is not None:
             expr = '//div[@id=$name]'
             self.refentry = self.tree.xpath(expr, name=self.detail['html_id'])[0]
@@ -71,6 +70,8 @@ class PHP:
         return keys
 
     def get_all(self):
+        self.detail['data'] = {}
+        self.get_type()
         self.get_mian_dom()
         keys = self.get_keys()
         if self.detail['data']['type'] == 'class':
@@ -204,7 +205,13 @@ class PHP:
                 detail = {'title': self.get_code(dt[i], parent=dl, active=False), 'description': ''}
                 string = ''
                 for d in dd[i].getchildren():
-                    if d.get('class') not in self.note:
+                    if d.tag == 'dl':
+                        ddt = self.get_dom(tag='dt', parent=d)
+                        ddd = self.get_dom(tag='dd', parent=d)
+                        for j in range(len(ddd)):
+                            string += self.get_code(ddt[j], parent=d) + '\n'
+                            string += "   %s\n" % self.get_code(ddd[j], parent=d)
+                    elif d.get('class') not in self.note:
                         string += self.get_code(d, parent=dd[i]) + '\n'
                     else:
                         data = self.get_code(d, parent=dd[i], mark=['span'])
@@ -239,7 +246,7 @@ class PHP:
                     data['code'] = "```php\n%s\n```" % data['code']
                 param.update(data)
             elif d.tag != 'h3':
-                param['description'] += self.get_code(d, parent=dom) + '\n'
+                param['description'] += self.get_code(d, parent=dom) + '\n\n'
         self.detail['data'][mark] = param
 
     def returnvalues(self):
@@ -267,14 +274,18 @@ class PHP:
         :return: null
         """
         key = sys._getframe().f_code.co_name
-        param = {'table': []}
+        param = []
         id = 'refsect1-%s-%s' % (self.detail['html_id'], key)
         dom = self.get_dom(id=id)[0]
         tbody = self.get_dom(tag='table/tbody', parent=dom)[0]
         tr = self.get_dom(tag='tr', parent=tbody)
         for td in tr:
-            param['table'].append(str(self.get_code(td, parent=dom)))
-        self.detail['data'][key] = param
+            param.append(str(self.get_code(td, parent=dom)))
+        temp = []
+        for p in param:
+            log = p.strip('\n').strip('|').split('|')
+            temp.append({'version': log[0], 'detail': log[1], })
+        self.detail['data'][key] = temp
 
     def examples(self):
         """
@@ -283,28 +294,31 @@ class PHP:
         :return: null
         """
         key = sys._getframe().f_code.co_name
-        param = {}
+        param = []
         id = 'refsect1-%s-%s' % (self.detail['html_id'], key)
         dom = self.get_dom(id=id)[0]
-        temp_id_index = 0
-        for e in dom.getchildren():
-            if e.get('class') == 'example':
-                temp_id_index += 1
+        for e in dom.xpath('node()'):
+            if isinstance(e, etree._ElementUnicodeResult):
+                c = str(e).replace('\n', '').replace("   ", "").strip()
+                if c:
+                    param.append(c)
+            elif e.get('class') == 'example':
                 temp_id = e.get('id')
-                param[temp_id_index] = {'id': temp_id,  # id examples-5758 类似东西
-                                        'title':
-                                            str(self.get_code(self.get_dom(tag='p/strong', parent=e)[0]))
-                                                .replace("  ", ' ').replace("  ", " "),
-                                        'description': ''}
+                temp = {}
+                temp.update({'id': temp_id})  # id examples-5758 类似东西
+                temp.update({'title': str(self.get_code(self.get_dom(tag='p/strong', parent=e)[0]))
+                            .replace("  ", ' ').replace("  ", " ")})
                 content = self.get_dom(className='example-contents', parent=e)
+                contentString = ''
                 for c in content:
-                    param[temp_id_index]['description'] += self.get_code(c, parent=e, active=False) + '\n'
+                    active = ('phpcode' not in [cc.get('class') for cc in c])
+                    contentString += self.get_code(c, parent=content, active=active) + '\n'
+                temp.update({'description': contentString})
+                param.append(temp)
             elif e.tag != 'h3':
                 c = self.get_code(e, parent=dom)
                 if c:
-                    temp_id_index += 1
-                    param.update({temp_id_index: c})
-
+                    param.append(c)
         self.detail['data'][key] = param
 
     def seealso(self):
@@ -320,8 +334,8 @@ class PHP:
         ul = self.get_dom(tag='ul/li', parent=dom)
         for li in ul:
             param.append(self.get_code(li))
-
-        self.detail['data'][key] = '\n'.join(param)
+        if len(param) > 0:
+            self.detail['data'][key] = ''.join(param)
 
     def errors(self):
         """
@@ -349,8 +363,30 @@ class PHP:
         id = 'refsect1-%s-%s' % (self.detail['html_id'], key)
         dom = self.get_dom(id=id)[0]
         notes = self.get_dom(tag='blockquote', parent=dom)
+        notes += self.get_dom(tag='div', parent=dom)
+        notes += self.get_dom(tag='p', className='para', parent=dom)
+
         for note in notes:
-            param.append(self.get_code(note))
+            if note.tag == 'blockquote':
+                blockContent = []
+                blockString = ''
+                for block in note.getchildren():
+                    if block.get('class') in self.note:
+                        if blockString != '':
+                            blockContent.append(blockString)
+                            blockString = ''
+                            blockContent.append(self.get_code(block, parent=note))
+                    else:
+                        blockString += self.get_code(block, parent=note) + '\n'
+                if blockString != '':
+                    blockContent.append(blockString)
+                param.append({'note': blockContent})
+            elif note.get('class') == 'para':
+                text = self.get_code(note)
+                param.append(text)
+            else:
+                text = self.get_code(note)
+                param.append(text)
         self.detail['data'][key] = param
 
     def get_dom(self, tag='*', className=None, id=None, parent=None):
@@ -377,7 +413,7 @@ class PHP:
         dom = parent.xpath(expr)
         return dom
 
-    def get_code(self, node, parent=None, active=True, mark=None):
+    def get_code(self, node, parent=None, active=True, mark=None, except_tag=''):
         c = ''
         if parent is None:
             parent = node.getparent()
@@ -397,42 +433,48 @@ class PHP:
 
         # 内容为节点
         if isinstance(node, etree._Element):
-            if node.tag == 'pre':
-                return '```%s\n```' % node.text
-            if node.tag == 'br':
+            if node.tag == except_tag:
+                return
+            elif node.tag == 'pre':
+                return '\n```\n%s\n```\n' % node.text
+            elif node.tag == 'br':
                 return '\n'
 
             for item in node.xpath('node()'):
-                c += str(self.get_code(item, parent=node, active=active, mark=mark))
+                c += str(self.get_code(item, parent=node, active=active, mark=mark, except_tag=except_tag))
+
             # 将文本保存为markdown
             if active:
                 # 当为a标签时，手动指定mark，需要判断
                 if (node.tag == 'a') and (mark is None or 'a' in mark):
                     c = " [%s](%s) " % (c, node.get('href'))
                 elif node.tag == 'blockquote':
-                    c = '> %s' % c
-                elif node.tag == 'table' or node.tag == 'thead':
+                    c = '\n > %s' % c
+                elif node.tag == 'table':
                     c = "\n%s" % c
-                elif node.tag == 'th':
-                    c = "|-%s-" % c
+                elif node.tag == 'thead':
+                    d = c.strip('\n').strip('|').split('|')
+                    s = '|'
+                    for i in d:
+                        s += ':---|'
+                    c = '\n\n %s %s \n' % (c, s)
                 elif node.tag == 'tr':
-                    c = c + ' |\n'
-                elif node.tag == 'td':
-                    c = '| ' + c
+                    c = '%s |\n' % c
+                elif node.tag == 'td' or node.tag == 'th':
+                    c = '| %s' % c
                 elif node.tag == 'li':
-                    c = '* ' + c
+                    c = '* %s\n' % c
 
             # 代码段
             if node.get('class') == 'phpcode':
-                c = '```php%s\n```' % c
+                c = '\n```php\n%s\n```\n' % c.strip().strip('` \n `')
             # 当内容为警告提示框或函数用法提示框
-            elif node.get('class') in self.note and node.tag == 'div':
+            elif (node.get('class') in self.note) and node.tag == 'div':
                 # 函数用法提示框 key 改为 'code'
                 if node.get('class') == 'methodsynopsis dc-description':
                     c = {'code': c.replace("  ", " ").replace("  ", " ")}
                 else:
                     c = {node.get('class'): c}
-
             return c
 
     def get_code_type(self, node, mark):
